@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tiny-gpt: a transformer from scratch</title>
+<meta name="description" content="A small decoder-only transformer written from scratch in numpy, running in your browser with its attention made visible.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=Victor+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #f5f0e4; --panel: #fbf8f1; --ink: #1e1c18; --muted: #6a645a; --rule: #d8cfbc; --mask: #ebe4d4;
+  --accent: #b5441f; --accent-rgb: 181, 68, 31; --ok: #2f6b3f;
+  --serif: "Literata", Georgia, serif; --mono: "Victor Mono", ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16px/1.55 var(--serif); }
+.banner { background: var(--ink); color: #efe8d8; font-size: 14px; padding: 8px 16px; text-align: center; }
+.banner a { color: #fff; }
+main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font: 600 clamp(28px, 5vw, 40px)/1.1 var(--serif); margin: 8px 0 6px; letter-spacing: -0.01em; }
+h1 code { font-family: var(--mono); font-weight: 600; }
+h2 { font: 600 20px/1.25 var(--serif); margin: 0 0 4px; }
+h2 .n { font-family: var(--mono); font-weight: 400; color: var(--accent); margin-right: 8px; font-size: 15px; }
+p { margin: 0 0 10px; }
+.lede { max-width: 66ch; color: #3a362f; margin-bottom: 8px; }
+.facts { font: 400 13px/1.6 var(--mono); color: var(--muted); margin: 0 0 20px; overflow-wrap: anywhere; }
+.facts b { color: var(--ink); font-weight: 600; }
+section { border-top: 1px solid var(--rule); padding: 22px 0 8px; }
+.sub { color: var(--muted); font-size: 14px; margin-bottom: 14px; max-width: 72ch; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 28px; }
+.grid-gen { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 28px; }
+.grid-eq { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
+@media (max-width: 900px) { .grid2, .grid-gen, .grid-eq { grid-template-columns: minmax(0, 1fr); gap: 18px; } }
+label, .lab { display: block; font: 600 12px/1.3 var(--mono); text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 12px 0 4px; }
+textarea, select, input[type=number] { width: 100%; font: 400 14px/1.45 var(--mono); background: var(--panel); color: var(--ink); border: 1px solid var(--rule); border-radius: 3px; padding: 8px; }
+textarea { min-height: 96px; resize: vertical; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.val { font: 600 13px var(--mono); }
+button { font: 600 14px var(--serif); border: 1px solid var(--ink); background: var(--panel); color: var(--ink); padding: 8px 14px; border-radius: 3px; cursor: pointer; }
+button:hover { background: #efe7d4; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.primary:hover { background: #9c3716; }
+button.small { font: 400 12.5px var(--mono); padding: 4px 8px; border-color: var(--rule); }
+button[aria-pressed=true] { background: var(--ink); color: #fff; border-color: var(--ink); }
+button:focus-visible, textarea:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.examples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.chips { font: 400 13.5px/2.1 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.chip { display: inline; padding: 2px 1px; border-radius: 2px; border: 1px solid transparent; cursor: default; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.chip.prompt { border-bottom: 1px solid var(--rule); }
+.chip.focus { outline: 2px solid var(--ink); outline-offset: 0; }
+.chip.pin { outline: 2px solid var(--accent); }
+.chip i { color: rgba(30,28,24,.38); font-style: normal; }
+.legend { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font: 400 12px var(--mono); color: var(--muted); margin: 0 0 10px; }
+.legend span.sw { width: 26px; height: 14px; border: 1px solid var(--rule); display: inline-block; }
+.empty { border: 1px dashed var(--rule); border-radius: 3px; padding: 18px; color: var(--muted); font-size: 15px; background: var(--panel); }
+.empty b { color: var(--ink); }
+.status { font: 400 13px/1.5 var(--mono); margin: 10px 0 0; }
+.status.err { color: var(--accent); }
+.status.ok { color: var(--ok); }
+.out { margin-top: 10px; padding: 12px; background: var(--panel); border: 1px solid var(--rule); border-radius: 3px; min-height: 120px; }
+.seg { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 0 0 8px; }
+.seg .lab { margin: 0 6px 0 0; }
+.readout { font: 400 13px/1.6 var(--mono); min-height: 3.3em; margin-top: 8px; overflow-wrap: anywhere; }
+.readout b { font-weight: 600; }
+.viz { position: relative; width: 100%; }
+.viz canvas, .viz svg { display: block; width: 100%; }
+.bars { display: grid; gap: 4px; font: 400 13px var(--mono); }
+.bar { display: grid; grid-template-columns: 92px minmax(0, 1fr) 54px; gap: 8px; align-items: center; }
+.bar .t { white-space: pre; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+.bar.chosen .t { font-weight: 600; color: var(--accent); }
+.bar .track { position: relative; height: 16px; background: transparent; border-bottom: 1px solid var(--rule); }
+.bar .track i { position: absolute; left: 0; top: 0; height: 7px; background: #b9b09b; }
+.bar .track i + i { top: 8px; background: var(--accent); }
+.bar .p { text-align: right; font-variant-numeric: tabular-nums; }
+.keyline { font: 400 12px var(--mono); color: var(--muted); display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+.keyline span::before { content: ""; display: inline-block; width: 14px; height: 6px; margin-right: 6px; vertical-align: middle; background: var(--c); }
+table { border-collapse: collapse; width: 100%; font: 400 13.5px var(--mono); }
+th, td { text-align: left; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--rule); font-variant-numeric: tabular-nums; }
+th { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+td.num, th.num { text-align: right; }
+.scroll { overflow-x: auto; }
+.cmp { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 10px; }
+@media (max-width: 700px) { .cmp { grid-template-columns: minmax(0, 1fr); } }
+.cmp h3 { font: 600 13px var(--mono); margin: 0 0 6px; }
+.cmp .out { min-height: 80px; }
+.stats { font: 400 12.5px/1.5 var(--mono); color: var(--muted); margin-top: 8px; }
+.boundary { display: inline-block; width: 100%; border-top: 2px solid var(--accent); font: 600 11px var(--mono); color: var(--accent); padding-top: 2px; margin: 2px 0; line-height: 1.4; }
+.parity { font: 400 14px/1.6 var(--mono); }
+.parity .pass { color: var(--ok); font-weight: 600; }
+.parity .fail { color: var(--accent); font-weight: 600; }
+.cmd { font: 400 13px var(--mono); background: var(--ink); color: #efe8d8; padding: 10px 12px; border-radius: 3px; overflow-x: auto; white-space: pre; }
+footer { border-top: 1px solid var(--rule); margin-top: 28px; padding-top: 14px; color: var(--muted); font-size: 14px; }
+a { color: var(--accent); }
+svg text { font-family: var(--mono); }
+@media (max-width: 480px) { .bar { grid-template-columns: 70px minmax(0, 1fr) 46px; } .chips { font-size: 12.5px; } }
+</style>
+</head>
+<body>
+<div class="banner">Live demo by EmSoft. A small language model trained from scratch; it is a teaching-size model, not a product. <a href="https://github.com/enxo7899/transformer-from-scratch">Source</a></div>
+<main>
+  <h1><code>tiny-gpt</code>: a transformer written from scratch</h1>
+  <p class="lede">A decoder-only transformer in numpy with hand-written backpropagation, trained on a laptop-class CPU. This page runs the same weights in plain JavaScript so you can watch what it attends to and try to break it.</p>
+  <p class="facts" id="facts">Loading model...</p>
+
+  <section id="generate">
+    <h2><span class="n">01</span>Generate and see how sure the model was</h2>
+    <p class="sub">Each token is shaded by the probability the model gave it: pale means it expected it, strong colour means it was surprised. Hover a token to see where it looked; click to pin it.</p>
+    <div class="grid-gen">
+      <div>
+        <label for="prompt">Prompt</label>
+        <textarea id="prompt" spellcheck="false">The "for" statement is used to iterate over the elements of a</textarea>
+        <div class="examples" id="examples"></div>
+        <label for="temp" class="row"><span>Temperature</span><span class="val" id="tempv"></span></label>
+        <input type="range" id="temp" min="0" max="2" step="0.05" value="0.8">
+        <label for="topk" class="row"><span>Top-k</span><span class="val" id="topkv"></span></label>
+        <input type="range" id="topk" min="0" max="100" step="1" value="40">
+        <label for="maxnew" class="row"><span>New tokens</span><span class="val" id="maxnewv"></span></label>
+        <input type="range" id="maxnew" min="8" max="120" step="1" value="60">
+        <label for="seed">Seed</label>
+        <input type="number" id="seed" value="7" min="0" max="999999">
+        <div class="actions"><button class="primary" id="go" disabled>Generate</button></div>
+      </div>
+      <div>
+        <div class="legend" aria-hidden="true">expected <span class="sw" style="background:rgba(181,68,31,.06)"></span><span class="sw" style="background:rgba(181,68,31,.25)"></span><span class="sw" style="background:rgba(181,68,31,.5)"></span><span class="sw" style="background:rgba(181,68,31,.75)"></span> surprising; underlined = your prompt</div>
+        <div class="out" id="chipsOut"><div class="empty"><b>Nothing generated yet.</b> Press Generate to continue the prompt, or pick an example. The model is small, so expect text that sounds like Python documentation but wanders.</div></div>
+        <p class="status" id="genStatus"></p>
+      </div>
+    </div>
+  </section>
+
+  <section id="inside">
+    <h2><span class="n">02</span>Inside the model</h2>
+    <p class="sub">Left: the attention pattern of one head. Arcs show where the hovered token reads from; the grey triangle is the causal mask, the part of the sequence a token is never allowed to see. Right: what the model predicted at that position.</p>
+    <div class="grid2">
+      <div>
+        <div class="seg" id="layerSeg"><span class="lab">Layer</span></div>
+        <div class="seg" id="headSeg"><span class="lab">Head</span></div>
+        <div class="viz" id="attViz"><div class="empty"><b>No attention to show yet.</b> Generate some text above and every layer and head will appear here.</div></div>
+        <div class="readout" id="attRead"></div>
+      </div>
+      <div>
+        <div class="lab" style="margin-top:0">Next-token distribution</div>
+        <div class="keyline"><span style="--c:#b9b09b">model, temperature 1</span><span style="--c:var(--accent)">what the sampler uses</span></div>
+        <div id="dist"><div class="empty">Hover or click a token to see the model's top guesses at that position.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="break">
+    <h2><span class="n">03</span>Try to break it</h2>
+    <p class="sub">The model learned positions 0 to 127 and nothing else. Ask it to go further and choose what the code does. Then compare temperature 0 with a hot sampler on the same prompt and seed.</p>
+    <div class="grid-eq">
+      <div>
+        <div class="lab" style="margin-top:0">A. Run past the trained context</div>
+        <label for="breakN" class="row"><span>Tokens to generate (prompt above)</span><span class="val" id="breakNv"></span></label>
+        <input type="range" id="breakN" min="20" max="320" step="1" value="200">
+        <label for="policy">When the context is full</label>
+        <select id="policy">
+          <option value="refuse">refuse: raise an error</option>
+          <option value="stop">stop: end the text there</option>
+          <option value="slide">slide: forget the oldest half, keep going</option>
+          <option value="unguarded">unguarded: no check (the bug)</option>
+        </select>
+        <div class="actions"><button id="breakGo" disabled>Run</button><button id="scoreGo" disabled>Score a held-out passage under all four</button></div>
+        <p class="status" id="breakStatus"></p>
+        <div class="out" id="breakOut"><div class="empty">Choose a policy and press Run. Try <b>unguarded</b>, then <b>refuse</b>.</div></div>
+        <div class="scroll" id="scoreOut"></div>
+      </div>
+      <div>
+        <div class="lab" style="margin-top:0">B. Temperature 0 against temperature 2</div>
+        <p class="sub" style="margin-bottom:6px">Same prompt, same seed, same 60 tokens. Only the sampler changes.</p>
+        <div class="actions" style="margin-top:0"><button id="tempGo" disabled>Compare</button></div>
+        <div class="cmp" id="cmpOut"><div class="empty" style="grid-column:1/-1">Press Compare to run both.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="evidence">
+    <h2><span class="n">04</span>Evidence</h2>
+    <p class="sub">Every number here is read from <code>docs/results.json</code>, written by <code>python -m tiny_gpt.train</code>, or computed live in this page.</p>
+    <div class="grid2">
+      <div>
+        <div class="lab" style="margin-top:0">Validation loss during training, against two baselines</div>
+        <div class="viz" id="curve"></div>
+      </div>
+      <div>
+        <div class="lab" style="margin-top:0">Held-out documents</div>
+        <div class="scroll"><table id="resTable"></table></div>
+        <p class="stats" id="resNote"></p>
+      </div>
+    </div>
+    <div class="lab">JavaScript against Python</div>
+    <div class="parity" id="parity">Checking...</div>
+  </section>
+
+  <footer>Built by <a href="https://github.com/enxo7899">EmSoft</a>. Trained from scratch on text shipped with the Python standard library (PSF licence); see <a href="https://github.com/enxo7899/transformer-from-scratch/blob/main/data/README.md">data/README.md</a>.</footer>
+</main>
+<script type="module" src="web/app.js"></script>
+</body>
+</html>

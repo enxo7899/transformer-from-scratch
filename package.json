@@ -1,0 +1,15 @@
+{
+  "name": "transformer-from-scratch",
+  "version": "1.0.0",
+  "description": "A small decoder-only transformer written from scratch in numpy with hand-written backpropagation, plus the same model running in the browser with its attention made visible.",
+  "type": "module",
+  "scripts": {
+    "test": "python3 -m pytest -q && node --test tests/*.test.js",
+    "test:js": "node --test tests/*.test.js",
+    "dev": "python3 -m http.server 5187 --bind 127.0.0.1",
+    "train": "python3 -m tiny_gpt.train --steps 3200",
+    "screenshots": "node scripts/screenshots.mjs"
+  },
+  "license": "MIT",
+  "author": "EmSoft"
+}
